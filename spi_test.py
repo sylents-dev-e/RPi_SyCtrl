@@ -2,30 +2,47 @@ import spidev
 import sys
 import time
 import RPi.GPIO as GPIO
+import struct
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False) 
+# SPI Settings 
 spi = spidev.SpiDev()
 spi.open(0, 0)
-
-GPIO.setup(5, GPIO.OUT)
-GPIO.setup(6, GPIO.IN)
-
-GPIO.output(5, GPIO.LOW)
-
-
-# Settings 
 spi.max_speed_hz = 3900000
 spi.mode = 0b00
 spi.bits_per_word = 8
 spi.no_cs = False
 spi.lsbfirst = False
+########################
 
-frame_size = 55
-to_send = []
+# SYNC pins
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False) 
+GPIO.setup(5, GPIO.OUT)  
+GPIO.setup(6, GPIO.IN)
+GPIO.output(5, GPIO.LOW)
+########################
 
-for i in range(0,frame_size):
-  to_send.append(i)
+# Constants
+spi_frame_size = 54
+spi_payload_size = 48
+spi_start_byte1 = 85       # 0x55
+spi_start_byte2 = 170      # 0xAA
+spi_crc_dummy = 165        # 0xA5
+spi_end_byte1 = 195        # 0xC3
+spi_end_byte2 = 60         # 0x3C
+
+spi_payloadoffset_cmd = 3
+spi_payloadoffset_data = 5
+########################
+
+# Transmission list
+spi_tx_frame = []
+spi_payload = []
+
+########################
+
+for i in range(0,spi_payload_size):
+  spi_payload.append(i)
   
 
 if __name__ == '__main__':
@@ -47,10 +64,35 @@ if __name__ == '__main__':
           GPIO.output(5, GPIO.HIGH)
           time.sleep(0.01) 
           GPIO.output(5, GPIO.LOW)   
+        
+        spi_tx_frame.append(spi_start_byte1)
+        spi_tx_frame.append(spi_start_byte2)
+        spi_tx_frame.append(spi_payload_size)
+        spi_tx_frame.extend(spi_payload)
+        spi_tx_frame.append(spi_crc_dummy)
+        spi_tx_frame.append(spi_end_byte1)
+        spi_tx_frame.append(spi_end_byte2)
                  
-        spi.writebytes(to_send)       
-        read = spi.readbytes(frame_size)
-        print(read)
+        spi.writebytes(spi_tx_frame)       
+        spi_rx_frame = spi.readbytes(spi_frame_size)
+        
+        if((spi_rx_frame[0] == spi_start_byte1) and (spi_rx_frame[1] == spi_start_byte2)
+            and (spi_rx_frame[spi_frame_size-2] == spi_end_byte1) and (spi_rx_frame[spi_frame_size-1] == spi_end_byte2)):        
+          values = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1], 
+                            spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data+3]])
+          values2 = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
+                            spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
+
+          
+          # avoid overflow of 4096 bytes SPI buffer
+          spi_tx_frame.clear()
+          
+          # unpacking RX bytewise   
+          value = struct.unpack(">I", values)
+          value2 = struct.unpack(">f", values2)
+          print(value, value2)  
+        
+        
         time.sleep(0.1) 
     except KeyboardInterrupt:
         GPIO.cleanup()

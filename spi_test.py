@@ -78,21 +78,29 @@ if __name__ == '__main__':
         
         if((spi_rx_frame[0] == spi_start_byte1) and (spi_rx_frame[1] == spi_start_byte2)
             and (spi_rx_frame[spi_frame_size-2] == spi_end_byte1) and (spi_rx_frame[spi_frame_size-1] == spi_end_byte2)):        
-          values = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1], 
-                            spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data+3]])
-          values2 = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
-                            spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
 
+          if((spi_rx_frame[2]) == spi_payload_size):
+            command_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_cmd], spi_rx_frame[spi_payloadoffset_cmd+1]])
+            timestamp_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1], 
+                              spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data+3]])
+            motorcurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
+                              spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
           
-          # avoid overflow of 4096 bytes SPI buffer
-          spi_tx_frame.clear()
-          
-          # unpacking RX bytewise   
-          value = struct.unpack(">I", values)
-          value2 = struct.unpack(">f", values2)
-          print(value, value2)  
-        
-        
+            # unpacking RX bytewise   
+            command_value = struct.unpack(">H", command_bytearray)
+            timestamp_value = struct.unpack(">I", timestamp_bytearray)
+            motorcurrent_value = struct.unpack(">f", motorcurrent_bytearray)
+            print(command_value, timestamp_value, motorcurrent_value)  
+          else:
+            #error handling payload size
+            dummy = 0
+        else:
+          #error handling incorrect start or stop
+          dummy = 0
+
+        # avoid overflow of 4096 bytes SPI buffer
+        spi_tx_frame.clear()
+        spi_rx_frame.clear()
         time.sleep(0.1) 
     except KeyboardInterrupt:
         GPIO.cleanup()

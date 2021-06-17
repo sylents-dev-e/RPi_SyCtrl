@@ -32,6 +32,8 @@ spi_end_byte1 = 195        # 0xC3
 spi_end_byte2 = 60         # 0x3C
 spi_payloadoffset_cmd = 3
 spi_payloadoffset_data = 5
+spi_cmd_data_no_file_write = 512  # 0x0200
+spi_cmd_data_file_write = 513     # 0x0201
 
 #---------- Transmission list ----------#
 spi_tx_frame = []
@@ -60,7 +62,7 @@ if __name__ == '__main__':
 #      spamwriter = csv.writer(csvfile, delimiter=' ',
 #      quotechar='|', quoting=csv.QUOTE_MINIMAL)
     
-    filename = 'Desktop/test_data.csv'
+    filename = 'test_data.csv'
     #filename = "{n}_{ts:%H_%M_%S}.csv".format(n=name, ts=datetime.now())
     
     data_file = open(filename, 'w', newline='')
@@ -76,7 +78,7 @@ if __name__ == '__main__':
     try:
         while True:
         
-          if(GPIO.input(6)==True):
+          if(GPIO.input(6)!=True):
             GPIO.output(5, GPIO.HIGH)
             time.sleep(0.1) 
             GPIO.output(5, GPIO.LOW)   
@@ -97,16 +99,31 @@ if __name__ == '__main__':
 
             if((spi_rx_frame[2]) == spi_payload_size):
               command_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_cmd], spi_rx_frame[spi_payloadoffset_cmd+1]])
+              command_value = struct.unpack(">H", command_bytearray)
+
               timestamp_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1], 
                                 spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data+3]])
               motorcurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
                                 spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
             
               # unpacking RX bytewise   
-              command_value = struct.unpack(">H", command_bytearray)
+              
               timestamp_value = struct.unpack(">I", timestamp_bytearray)
               motorcurrent_value = struct.unpack(">f", motorcurrent_bytearray)
-              print(command_value, timestamp_value, motorcurrent_value)  
+
+              print(command_value) 
+
+              #result.write(str(command_value) + ";" + str(timestamp_value) + ";" + str(motorcurrent_value) + "\n")
+              if(command_value == spi_cmd_data_no_file_write):
+                #data_file.close()
+                print("no file writing")
+                print(command_value, timestamp_value, motorcurrent_value)
+              elif(command_value == spi_cmd_data_file_write):
+                csvwriter.writerow(command_value + timestamp_value + motorcurrent_value)
+              else:
+                print("invalid command")     
+              
+
             else:
               #error handling payload size
               dummy = 0
@@ -114,13 +131,9 @@ if __name__ == '__main__':
             #error handling incorrect start or stop
             dummy = 0
 
-          # avoid overflow of 4096 bytes SPI buffer
+          #avoid overflow of 4096 bytes SPI buffer
           spi_tx_frame.clear()
           spi_rx_frame.clear()
-          
-          #result.write(str(command_value) + ";" + str(timestamp_value) + ";" + str(motorcurrent_value) + "\n")
-          csvwriter.writerow(command_value + timestamp_value + motorcurrent_value)
-          
 
           time.sleep(0.1)
     except KeyboardInterrupt: 

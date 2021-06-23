@@ -101,10 +101,17 @@ if __name__ == '__main__':
 #    sys.exit(0)
 
     #---------- ALIVE PING ----------#
+<<<<<<< HEAD
     while(GPIO.input(6) == False):  # False
       GPIO.output(5, GPIO.HIGH)
       time.sleep(0.1)
       GPIO.output(5, GPIO.LOW)
+=======
+    while(GPIO.input(6) == True):  # False
+        GPIO.output(5, GPIO.HIGH)
+        time.sleep(0.1)
+        GPIO.output(5, GPIO.LOW)
+>>>>>>> 299afb4a12d321da04728f2a6de20d05e3d73659
 
     GPIO.output(5, GPIO.HIGH)
     time.sleep(0.1)
@@ -134,6 +141,7 @@ if __name__ == '__main__':
 
     #---------- ENDLESS LOOP ----------#
     try:
+<<<<<<< HEAD
       while True:
         
         # check in every iteration the alive pins
@@ -258,3 +266,72 @@ if __name__ == '__main__':
       data_file.close()
       spi.close()
       sys.exit(0)
+=======
+        while True:
+
+            if(GPIO.input(6) == True):
+                GPIO.output(5, GPIO.HIGH)
+                time.sleep(0.1)
+                GPIO.output(5, GPIO.LOW)
+
+            spi_tx_frame.append(spi_start_byte1)
+            spi_tx_frame.append(spi_start_byte2)
+            spi_tx_frame.append(spi_payload_size)
+            spi_tx_frame.extend(spi_payload)
+            spi_tx_frame.append(spi_crc_dummy)
+            spi_tx_frame.append(spi_end_byte1)
+            spi_tx_frame.append(spi_end_byte2)
+
+            spi.writebytes(spi_tx_frame)
+            spi_rx_frame = spi.readbytes(spi_frame_size)
+
+            if((spi_rx_frame[0] == spi_start_byte1) and (spi_rx_frame[1] == spi_start_byte2)
+                    and (spi_rx_frame[spi_frame_size-2] == spi_end_byte1) and (spi_rx_frame[spi_frame_size-1] == spi_end_byte2)):
+
+                if((spi_rx_frame[2]) == spi_payload_size):
+                    command_bytearray = bytearray(
+                        [spi_rx_frame[spi_payloadoffset_cmd], spi_rx_frame[spi_payloadoffset_cmd+1]])
+                    timestamp_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1],
+                                                     spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data+3]])
+                    motorcurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
+                                                        spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
+
+                    # unpacking RX bytewise
+                    command_value = struct.unpack(">H", command_bytearray)
+                    timestamp_value = struct.unpack(">I", timestamp_bytearray)
+                    motorcurrent_value = struct.unpack(
+                        ">f", motorcurrent_bytearray)
+                    print(command_value, timestamp_value, motorcurrent_value)
+                else:
+                    # error handling payload size
+                    dummy = 0
+            else:
+                # error handling incorrect start or stop
+                dummy = 0
+
+            # avoid overflow of 4096 bytes SPI buffer
+            spi_tx_frame.clear()
+            spi_rx_frame.clear()
+
+            #result.write(str(command_value) + ";" + str(timestamp_value) + ";" + str(motorcurrent_value) + "\n")
+            csvwriter.writerow(
+                command_value + timestamp_value + motorcurrent_value)
+
+            time.sleep(0.1)
+
+            # exit safely
+            GPIO.cleanup()
+            data_file.close()
+            sys.exit(0)
+
+    except KeyboardInterrupt:
+        GPIO.cleanup()
+        data_file.close()
+        spi.close()
+        sys.exit(0)
+    except:
+        GPIO.cleanup()
+        data_file.close()
+        spi.close()
+        sys.exit(0)
+>>>>>>> 299afb4a12d321da04728f2a6de20d05e3d73659

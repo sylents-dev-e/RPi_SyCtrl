@@ -23,7 +23,7 @@ filename = "spidata_"
 #---------- SPI Settings ----------#
 spi = spidev.SpiDev()
 spi.open(0, 0)
-spi.max_speed_hz = 7629
+spi.max_speed_hz = 3900000
 #BCM2835_SPI_CLOCK_DIVIDER_32768 = 32768,   ///< 32768 = 131.072us = 7.629394531kHz
 #BCM2835_SPI_CLOCK_DIVIDER_16384 = 16384,   ///< 16384 = 65.536us = 15.25878906kHz
 #BCM2835_SPI_CLOCK_DIVIDER_8192  = 8192,    ///< 8192 = 32.768us = 30/51757813kHz
@@ -101,7 +101,6 @@ if __name__ == '__main__':
 #    sys.exit(0)
 
     #---------- ALIVE PING ----------#
-
     while(GPIO.input(6) == False):  # False
       GPIO.output(5, GPIO.HIGH)
       time.sleep(0.1)
@@ -153,10 +152,12 @@ if __name__ == '__main__':
         spi_tx_frame.append(spi_end_byte2)
 
         # write the SPI bytes
-        spi.writebytes(spi_tx_frame)
+        #spi.writebytes(spi_tx_frame)
+
+        spi_rx_frame = spi.xfer2(spi_tx_frame)
 
         # read the SPI bytes
-        spi_rx_frame = spi.readbytes(spi_frame_size)
+        #spi_rx_frame = spi.readbytes(spi_frame_size)
 
         # check the SPI start and stopbytes
         if((spi_rx_frame[0] == spi_start_byte1) and (spi_rx_frame[1] == spi_start_byte2)

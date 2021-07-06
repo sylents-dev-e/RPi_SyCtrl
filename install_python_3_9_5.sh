@@ -25,11 +25,13 @@ sudo make install
 
 cd ..
 sudo rm -r Python-3.9.5
-rm -rf Python-3.9.5.tar.xz
+rm -rf Python-3.9.5.tar.xz*
 
-Python --version
+python --version
 
+echo "# python 3.9 " >> ~/.bashrc
 echo "alias python='/usr/local/bin/python3.9'" >> ~/.bashrc
-echo "alias pip=pip3" >> ~/.bashrc
+echo "alias pip='/usr/local/bin/pip3.9'" >> ~/.bashrc
+# echo "alias pip=pip3" >> ~/.bashrc
 
-. ~/.bashrc
+. ~/.bashrc		# maybe use source

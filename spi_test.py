@@ -62,8 +62,8 @@ spi_end_byte1 = 195        # 0xC3
 spi_end_byte2 = 60         # 0x3C
 spi_payloadoffset_cmd = 3
 spi_payloadoffset_data = 5
-spi_cmd_data_no_file_write = 512  # 0x0200
-spi_cmd_data_file_write = 513     # 0x0201
+spi_cmd_sensordata_nolog = 512  # 0x0200 cmd stm sensordata sensordata from stm
+spi_cmd_sensordata_log = 513     # 0x0201 cmd 
 spi_cmd_status = 515              # 0x0203
 #---------- Transmission list ----------#
 spi_tx_frame = []
@@ -189,9 +189,9 @@ if __name__ == '__main__':
             joystick_i2c_y_value = struct.unpack(">b", bytearray([spi_rx_frame[spi_payloadoffset_data+33]]))
             loadcell_hx711_value = struct.unpack(">H", loadcell_hx711_bytearray)
 
-            # check which command is send
-            # 1. case: no command for file write is send
-            if(int(''.join(map(str, command_value))) == spi_cmd_data_no_file_write):
+            # check rcv command type
+            # 1. case: data without logging
+            if(int(''.join(map(str, command_value))) == spi_cmd_sensordata_nolog):
               #data_file.close()
               print("no file writing")
               print(type(spi_rx_frame[spi_payloadoffset_data+30]))
@@ -199,8 +199,8 @@ if __name__ == '__main__':
                 watthours_value, tempmosfet_value, tempmotor_value, batterycurrent_value, pid_value,
                 batteryvoltage_value, joystick_i2c_x_value, joystick_i2c_y_value, loadcell_hx711_value)
             
-            # 2. case: command for file write is send
-            elif(int(''.join(map(str, command_value))) == spi_cmd_data_file_write):
+            # 2. case: data + logging
+            elif(int(''.join(map(str, command_value))) == spi_cmd_sensordata_log):
               
               print(old_command)
               

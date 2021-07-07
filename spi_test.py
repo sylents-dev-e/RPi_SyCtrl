@@ -1,7 +1,5 @@
-import spidev
 import sys
 import time
-import RPi.GPIO as GPIO
 import struct
 import csv
 from datetime import datetime
@@ -9,6 +7,9 @@ import os.path
 from os.path import isfile, join
 from os import listdir
 import re
+
+import spidev
+import RPi.GPIO as GPIO
 import sypacket as syp
 
 # def extract_number(f):
@@ -63,7 +64,7 @@ spi_end_byte2 = 60         # 0x3C
 spi_payloadoffset_cmd = 3
 spi_payloadoffset_data = 5
 spi_cmd_sensordata_nolog = 512  # 0x0200 cmd stm sensordata sensordata from stm
-spi_cmd_sensordata_log = 513     # 0x0201 cmd 
+spi_cmd_sensordata_log = 513     # 0x0201 cmd
 spi_cmd_status = 515              # 0x0203
 #---------- Transmission list ----------#
 spi_tx_frame = []
@@ -75,12 +76,12 @@ for i in range(0, spi_payload_size):
 
 
 if __name__ == '__main__':
-    
+
     old_command = bytearray([])
     fault_counter = 0
-    
+
     if syp.DBG:
-    	print("---------- DEBUG MODE ----------")
+      print("---------- DEBUG MODE ----------")
 
     #---------- ALIVE PING ----------#
     print("Checking STM32 ALIVE on pin_"+str(syp.PIN_STMALIVE))

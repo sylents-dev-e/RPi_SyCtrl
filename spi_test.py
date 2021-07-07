@@ -140,7 +140,7 @@ if __name__ == '__main__':
     try:
         while True:
 
-            print("1")
+            if syp.DBG: print("1")
             # check in every iteration the alive pins
             # @jwa is this really neccessary ?
             if GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE:
@@ -280,12 +280,12 @@ if __name__ == '__main__':
                     # error handling payload size
                     dummy = 0
                     fault_counter += 1
-                    print ("F101: RX SPI Packet: Unexpected Rx Packet Size. Faultcount: "+fault_counter)
+                    print ("F101: RX SPI Packet: Unexpected Rx Packet Size. Faultcount: "+str(fault_counter) )
             else:
                 # error handling incorrect start or stop
                 dummy = 0
                 fault_counter += 1
-                print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+fault_counter)
+                print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+str(fault_counter) )
 
 
 

@@ -1,3 +1,6 @@
+"""
+Packet XVR module on RPi. Transmitting Config and Receiving Status+Sensordata.
+"""
 import sys
 import time
 import struct
@@ -56,24 +59,61 @@ GPIO.output(5, GPIO.LOW)
 #---------- Constants ----------#
 SPIFRMSIZE = 54
 SPIPAYSIZE = 48
-SPISTARTB0 = 85       # 0x55
-SPISTARTB1 = 170      # 0xAA
-spi_crc_dummy = 165        # 0xA5
-spi_end_byte1 = 195        # 0xC3
-spi_end_byte2 = 60         # 0x3C
+#SPISTARTB0 = 85       # 0x55
+SPISTARTB0 = 0x55       # 0x55
+SPISTARTB1 = 0xAA      # 0xAA
+spi_crc_dummy = 0xA5        # 0xA5
+spi_end_byte1 = 0xC3        # 0xC3
+spi_end_byte2 = 0x3C         # 0x3C
 spi_payloadoffset_cmd = 3
 spi_payloadoffset_data = 5
-spi_cmd_sensordata_nolog = 512  # 0x0200 cmd stm sensordata sensordata from stm
-spi_cmd_sensordata_log = 513     # 0x0201 cmd
-spi_cmd_status = 515              # 0x0203
+spi_cmd_sensordata_nolog = 0x200  # 0x0200 cmd stm sensordata sensordata from stm
+spi_cmd_sensordata_log = 0x0201     # 0x0201 cmd
+spi_cmd_status = 0x0203              # 0x0203
+
 #---------- Transmission list ----------#
-spi_tx_frame = []
 spi_payload = []
 
-# create payload ramp
-for i in range(0, SPIPAYSIZE):
-    spi_payload.append(i)
 
+class TxFrame:
+
+    #default constructor:
+    def __init__(self):
+        self.tx_frame = bytearray(SPIFRMSIZE)
+        # initialize tx frame
+
+        self.tx_frame[0]=SPISTARTB0
+        self.tx_frame[1]=SPISTARTB1
+        self.tx_frame[2]=SPIPAYSIZE
+        for i in range(0, SPIPAYSIZE):
+            self.tx_frame[i+3]=i
+        self.tx_frame[SPIPAYSIZE+3]=spi_crc_dummy
+        self.tx_frame[SPIPAYSIZE+4]=spi_end_byte1
+        self.tx_frame[SPIPAYSIZE+5]=spi_end_byte2
+
+    def reinit(self):
+
+        self.tx_frame[0]=SPISTARTB0
+        self.tx_frame[1]=SPISTARTB1
+        self.tx_frame[2]=SPIPAYSIZE
+        for i in range(0, SPIPAYSIZE):
+            self.tx_frame[i+3]=i
+        self.tx_frame[SPIPAYSIZE+3]=spi_crc_dummy
+        self.tx_frame[SPIPAYSIZE+4]=spi_end_byte1
+        self.tx_frame[SPIPAYSIZE+5]=spi_end_byte2
+
+    def print(self):
+        #print(self.tx_frame)
+        print(self.tx_frame)
+
+    def printhex(self):
+        #print(self.tx_frame)
+        print(" ".join(hex(n) for n in self.tx_frame))
+        
+    def arr(self):
+        #print(self.tx_frame)
+        self.tx_frame
+        
 
 if __name__ == '__main__':
 
@@ -99,21 +139,11 @@ if __name__ == '__main__':
     print("Found STM32 is Alive")
 
     # prepare direcory and file
-
-
-    #---------- FILE OPEN ----------#
-#    with open('testdata.csv', 'w', newline='') as csvfile:
-#      spamwriter = csv.writer(csvfile, delimiter=' ',
-#      quotechar='|', quoting=csv.QUOTE_MINIMAL)
-
     # check if file exists
-# test if directory exists
+    # test if directory exists
     if not os.path.exists(DIRNAME):
         os.makedirs(DIRNAME)
         print("Directory", DIRNAME,  "created ")
-    #    else:
-    #        print("Directory", DIRNAME,  "exists")
-
     # list all files
     onlyfiles = [f for f in listdir(DIRNAME) if isfile(join(DIRNAME, f))]
 
@@ -130,40 +160,30 @@ if __name__ == '__main__':
 
     print("Filename:", filename)
 
+    # initialize txo tx framepacket object
+    txo = TxFrame()
+    if syp.DBG: print (" ".join(hex(n) for n in txo.tx_frame))
 
-    print("Entering Packet TX RX Loop")
 
-    #filename = 'spidata/test_data.csv'
-    #filename = "{n}_{ts:%H_%M_%S}.csv".format(n=name, ts=datetime.now())
-
-    #---------- ENDLESS LOOP ----------#
+    #---------- ENDLESS CMD Processing Loop ----------#
     try:
+
         while True:
 
-            if syp.DBG: print("1")
             # check in every iteration the alive pins
             # @jwa is this really neccessary ?
             if GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE:
-                print("2")
                 # Waiting for STM32 becoming Alive Again
                 GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
                 time.sleep(syp.PINT)
                 GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
-            else:
-                print("3")
-
-            print("4")
-            # putting together the SPI transmission frame
-            spi_tx_frame.append(SPISTARTB0)
-            spi_tx_frame.append(SPISTARTB1)
-            spi_tx_frame.append(SPIPAYSIZE)
-            spi_tx_frame.extend(spi_payload)
-            spi_tx_frame.append(spi_crc_dummy)
-            spi_tx_frame.append(spi_end_byte1)
-            spi_tx_frame.append(spi_end_byte2)
-
+            
             # SEND and RECEIVE Data Frame
-            spi_rx_frame = spi.xfer2(spi_tx_frame)
+            if syp.DBG: 
+                print("spi_xfer "+str(len(txo.tx_frame)))
+                print(" ".join(hex(n) for n in txo.tx_frame))
+
+            spi_rx_frame = spi.xfer2(txo.tx_frame)
             # read the SPI bytes
             #spi_rx_frame = spi.readbytes(SPIFRMSIZE)
 
@@ -228,16 +248,17 @@ if __name__ == '__main__':
                     loadcell_hx711_value = struct.unpack(">H", loadcell_hx711_bytearray)
 
                     # check rcv command type
-                    # 1. case: data without logging
+                    # case: Sensordata packet -no_logging
                     if int(''.join(map(str, command_value))) == spi_cmd_sensordata_nolog:
                         #data_file.close()
-                        print("no file writing")
-                        print(type(spi_rx_frame[spi_payloadoffset_data+30]))
-                        print(command_value, timestamp_value, motorcurrent_value, dutycylce_value, amperehours_value,
-                          watthours_value, tempmosfet_value, tempmotor_value, batterycurrent_value, pid_value,
-                          batteryvoltage_value, joystick_i2c_x_value, joystick_i2c_y_value, loadcell_hx711_value)
+                        if syp.DBG :
+                            print("-no_log")
+                            print(type(spi_rx_frame[spi_payloadoffset_data+30]))
+                            print(command_value, timestamp_value, motorcurrent_value, dutycylce_value, amperehours_value,
+                                watthours_value, tempmosfet_value, tempmotor_value, batterycurrent_value, pid_value,
+                                batteryvoltage_value, joystick_i2c_x_value, joystick_i2c_y_value, loadcell_hx711_value)
 
-                    # 2. case: data + logging
+                    # case: Sensordata packet -logging
                     elif int(''.join(map(str, command_value))) == spi_cmd_sensordata_log:
 
                         print(old_command)
@@ -288,9 +309,8 @@ if __name__ == '__main__':
                 print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+str(fault_counter) )
 
 
-
-                # avoid overflow of 4096 bytes SPI buffer
-            spi_tx_frame.clear()
+            # avoid overflow of 4096 bytes SPI buffer
+            #txf.clear()
             spi_rx_frame.clear()
 
                     #result.write(str(command_value) + ";" + str(timestamp_value) + ";" + str(motorcurrent_value) + "\n")

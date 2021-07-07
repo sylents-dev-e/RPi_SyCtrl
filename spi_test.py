@@ -59,24 +59,21 @@ GPIO.output(5, GPIO.LOW)
 #---------- Constants ----------#
 SPIFRMSIZE = 54
 SPIPAYSIZE = 48
-#SPISTARTB0 = 85       # 0x55
-SPISTARTB0 = 0x55       # 0x55
-SPISTARTB1 = 0xAA      # 0xAA
-spi_crc_dummy = 0xA5        # 0xA5
-spi_end_byte1 = 0xC3        # 0xC3
-spi_end_byte2 = 0x3C         # 0x3C
+#SPISTARTB0 = 85                # 0x55
+SPISTARTB0 = 0x55                   # 0x55
+SPISTARTB1 = 0xAA                   # 0xAA
+spi_crc_dummy = 0xA5                # 0xA5
+spi_end_byte1 = 0xC3                # 0xC3
+spi_end_byte2 = 0x3C                # 0x3C
 spi_payloadoffset_cmd = 3
 spi_payloadoffset_data = 5
-spi_cmd_sensordata_nolog = 0x200  # 0x0200 cmd stm sensordata sensordata from stm
+spi_cmd_sensordata_nolog = 0x200    # 0x0200 cmd stm sensordata sensordata from stm
 spi_cmd_sensordata_log = 0x0201     # 0x0201 cmd
-spi_cmd_status = 0x0203              # 0x0203
-
-#---------- Transmission list ----------#
-spi_payload = []
+spi_cmd_status = 0x0203             # 0x0203
 
 
+#---------- Objects ----------#
 class TxFrame:
-
     #default constructor:
     def __init__(self):
         self.tx_frame = bytearray(SPIFRMSIZE)
@@ -92,7 +89,6 @@ class TxFrame:
         self.tx_frame[SPIPAYSIZE+5]=spi_end_byte2
 
     def reinit(self):
-
         self.tx_frame[0]=SPISTARTB0
         self.tx_frame[1]=SPISTARTB1
         self.tx_frame[2]=SPIPAYSIZE
@@ -103,19 +99,20 @@ class TxFrame:
         self.tx_frame[SPIPAYSIZE+5]=spi_end_byte2
 
     def print(self):
-        #print(self.tx_frame)
         print(self.tx_frame)
 
     def printhex(self):
-        #print(self.tx_frame)
         print(" ".join(hex(n) for n in self.tx_frame))
         
     def arr(self):
-        #print(self.tx_frame)
         self.tx_frame
-        
 
+
+
+        
+#------------------------------#
 if __name__ == '__main__':
+#------------------------------#
 
     old_command = bytearray([])
     fault_counter = 0
@@ -181,7 +178,7 @@ if __name__ == '__main__':
             # SEND and RECEIVE Data Frame
             if syp.DBG: 
                 print("spi_xfer "+str(len(txo.tx_frame)))
-                print(" ".join(hex(n) for n in txo.tx_frame))
+#                print(" ".join(hex(n) for n in txo.tx_frame))
 
             spi_rx_frame = spi.xfer2(txo.tx_frame)
             # read the SPI bytes
@@ -301,12 +298,12 @@ if __name__ == '__main__':
                     # error handling payload size
                     dummy = 0
                     fault_counter += 1
-                    print ("F101: RX SPI Packet: Unexpected Rx Packet Size. Faultcount: "+str(fault_counter) )
+                    print ("F101: RX SPI unexpected size, fc: "+str(fault_counter) )
             else:
                 # error handling incorrect start or stop
                 dummy = 0
                 fault_counter += 1
-                print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+str(fault_counter) )
+                print ("F102: Rx SPI missing delimiters, fc: "+str(fault_counter) )
 
 
             # avoid overflow of 4096 bytes SPI buffer

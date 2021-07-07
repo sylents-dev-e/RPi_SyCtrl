@@ -1,5 +1,9 @@
-DBG=False
+DBG=True
 
 OFF_TIMESTAMP=3
+OFF_START=0
+OFF_PSIZE=2
 PIN_STMALIVE=6
+PIN_RPIALIVE=5
 STM32_ALIVE=True
+PINT=0.1    # Packet Interval in seconds

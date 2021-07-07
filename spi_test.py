@@ -9,7 +9,7 @@ import os.path
 from os.path import isfile, join
 from os import listdir
 import re
-
+import sypacket as syp
 
 # def extract_number(f):
 #    s = re.findall("(\d+).csv", f)
@@ -18,7 +18,7 @@ import re
 
 #---------- File Settings ----------#
 dirName = "spidata"
-filename = "spidata_"
+fileprefix = "spidata_"
 
 #---------- SPI Settings ----------#
 spi = spidev.SpiDev()
@@ -48,8 +48,8 @@ spi.lsbfirst = False
 # SYNC pins
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.setup(5, GPIO.OUT)
-GPIO.setup(6, GPIO.IN)
+GPIO.setup(syp.PIN_RPIALIVE, GPIO.OUT)
+GPIO.setup(syp.PIN_STMALIVE, GPIO.IN)
 GPIO.output(5, GPIO.LOW)
 
 #---------- Constants ----------#
@@ -72,25 +72,33 @@ spi_payload = []
 # create payload ramp
 for i in range(0, spi_payload_size):
     spi_payload.append(i)
-    
 
 
 if __name__ == '__main__':
     
     old_command = bytearray([])
+    fault_counter = 0
     
+    if syp.DBG:
+    	print("---------- DEBUG MODE ----------")
 
     #---------- ALIVE PING ----------#
-    while(GPIO.input(6) == False):  # False
-      GPIO.output(5, GPIO.HIGH)
-      time.sleep(0.1)
-      GPIO.output(5, GPIO.LOW)
+    print("Checking STM32 ALIVE on pin_"+str(syp.PIN_STMALIVE))
+    while( (GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE ) and not syp.DBG):
+    # Waiting for STM32 coming to live
+      GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
+      time.sleep(syp.PINT)
+      GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
+	
+	# STM32 Alive Signal Detected
+    GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
+    time.sleep(syp.PINT)
+    GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
 
-    GPIO.output(5, GPIO.HIGH)
-    time.sleep(0.1)
-    GPIO.output(5, GPIO.LOW)
+    print("Found STM32 is Alive")
 
-    print("STM32 Alive")
+    # prepare direcory and file 
+
 
     #---------- FILE OPEN ----------#
 #    with open('testdata.csv', 'w', newline='') as csvfile:
@@ -98,6 +106,31 @@ if __name__ == '__main__':
 #      quotechar='|', quoting=csv.QUOTE_MINIMAL)
 
     # check if file exists
+# test if directory exists
+    if not os.path.exists(dirName):
+      os.makedirs(dirName)
+      print("Directory", dirName,  "created ")
+    #    else:
+    #        print("Directory", dirName,  "exists")
+            
+    # list all files
+    onlyfiles = [f for f in listdir(dirName) if isfile(join(dirName, f))]
+
+    max = 0
+    for file in onlyfiles:
+      # assuming filename is "filexxx.txt"
+      num = int(re.search(fileprefix+'(\d*).csv', file).group(1))
+      # compare num to previous max, e.g.
+      max = num if num > max else max  # set max = 0 before for-loop
+    nextnum = max+1
+    
+    filename = fileprefix + str(nextnum) + '.csv'        
+    data_file = open('./'+dirName+'/'+filename, 'w+', newline='')
+
+    print("Filename:", filename)
+    
+
+    print("Entering Packet TX RX Loop")
 
     #filename = 'spidata/test_data.csv'
     #filename = "{n}_{ts:%H_%M_%S}.csv".format(n=name, ts=datetime.now())
@@ -106,13 +139,19 @@ if __name__ == '__main__':
     try:
       while True:
         
+        print("1")
         # check in every iteration the alive pins
-        if(GPIO.input(6)!= True):
-          GPIO.output(5, GPIO.HIGH)
+        # @jwa is this really neccessary ?
+        if GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE:
+          print("2")
+          # Waiting for STM32 becoming Alive Again
+          GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
           time.sleep(0.1)
-          GPIO.output(5, GPIO.LOW)
+          GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
+        else:
+          print("3")
 
-        # filling the SPI transmission frame
+        # putting together the SPI transmission frame
         spi_tx_frame.append(spi_start_byte1)
         spi_tx_frame.append(spi_start_byte2)
         spi_tx_frame.append(spi_payload_size)
@@ -121,27 +160,24 @@ if __name__ == '__main__':
         spi_tx_frame.append(spi_end_byte1)
         spi_tx_frame.append(spi_end_byte2)
 
-        # write the SPI bytes
-        #spi.writebytes(spi_tx_frame)
-
+        # SEND and RECEIVE Data Frame
         spi_rx_frame = spi.xfer2(spi_tx_frame)
-
         # read the SPI bytes
         #spi_rx_frame = spi.readbytes(spi_frame_size)
 
-        # check the SPI start and stopbytes
-        if((spi_rx_frame[0] == spi_start_byte1) and (spi_rx_frame[1] == spi_start_byte2)
+        # check the Packet Format's start and stopbytes
+        if((spi_rx_frame[syp.OFF_START] == spi_start_byte1) and (spi_rx_frame[syp.OFF_START+1] == spi_start_byte2)
                   and (spi_rx_frame[spi_frame_size-2] == spi_end_byte1) and (spi_rx_frame[spi_frame_size-1] == spi_end_byte2)):
 
           # check the SPI payload size and parse the SPI frame
-          if((spi_rx_frame[2]) == spi_payload_size):
+          if((spi_rx_frame[syp.OFF_PSIZE]) == spi_payload_size):
 
             # parsing the single bytes from SPI into byte arrays
             command_bytearray = bytearray(
                 [spi_rx_frame[spi_payloadoffset_cmd], spi_rx_frame[spi_payloadoffset_cmd+1]])
 
             timestamp_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1],
-              spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data+3]])
+              spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data + syp.OFF_TIMESTAMP]])
 
             motorcurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
               spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
@@ -206,28 +242,9 @@ if __name__ == '__main__':
               
               if (old_command != command_value and (old_command != spi_cmd_status) and command_value != spi_cmd_status):
                 print("here")
-                # test if directory exists
-                if not os.path.exists(dirName):
-                    os.makedirs(dirName)
-                    print("Directory", dirName,  "created ")
-                  #    else:
-                  #        print("Directory", dirName,  "exists")
-            
-                # list all files
-                onlyfiles = [f for f in listdir(dirName) if isfile(join(dirName, f))]
-
-                max = 0
-                for file in onlyfiles:
-                    # assuming filename is "filexxx.txt"
-                    num = int(re.search(filename+'(\d*).csv', file).group(1))
-                    # compare num to previous max, e.g.
-                    max = num if num > max else max  # set max = 0 before for-loop
-                nextnum = max+1
-                newfilename = filename + str(nextnum) + '.csv'
-            
-                print("Filename:", newfilename)
                 
-                data_file = open('./'+dirName+'/'+newfilename, 'w+', newline='')
+                # removed file creation and file opening from here
+
                 #print(data_file)
                 now = datetime.now()
                 time_base = now.strftime("%H%M%S\0")
@@ -254,16 +271,21 @@ if __name__ == '__main__':
             
             # 3. case: status received from stm32
             else:
-              print("Status")    
+              print("Status")
 
-            old_command = command_value     
+            old_command = command_value
           else:
             # error handling payload size
-            dummy = 0            
-          
+            dummy = 0
+            fault_counter += 1            
+            print ("F101: RX SPI Packet: Unexpected Rx Packet Size. Faultcount: "+str(fault_counter))
         else:
           # error handling incorrect start or stop
           dummy = 0
+          fault_counter += 1        
+          print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+str(fault_counter))
+
+          
    
           # avoid overflow of 4096 bytes SPI buffer
         spi_tx_frame.clear()

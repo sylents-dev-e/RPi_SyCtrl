@@ -8,8 +8,8 @@ from os.path import isfile, join
 from os import listdir
 import re
 
-import spidev
 import RPi.GPIO as GPIO
+import spidev
 import sypacket as syp
 
 # def extract_number(f):
@@ -18,8 +18,8 @@ import sypacket as syp
 
 
 #---------- File Settings ----------#
-dirName = "spidata"
-fileprefix = "spidata_"
+DIRNAME = "spidata"
+FILEPRE = "spidata_"
 
 #---------- SPI Settings ----------#
 spi = spidev.SpiDev()
@@ -54,10 +54,10 @@ GPIO.setup(syp.PIN_STMALIVE, GPIO.IN)
 GPIO.output(5, GPIO.LOW)
 
 #---------- Constants ----------#
-spi_frame_size = 54
-spi_payload_size = 48
-spi_start_byte1 = 85       # 0x55
-spi_start_byte2 = 170      # 0xAA
+SPIFRMSIZE = 54
+SPIPAYSIZE = 48
+SPISTARTB0 = 85       # 0x55
+SPISTARTB1 = 170      # 0xAA
 spi_crc_dummy = 165        # 0xA5
 spi_end_byte1 = 195        # 0xC3
 spi_end_byte2 = 60         # 0x3C
@@ -71,7 +71,7 @@ spi_tx_frame = []
 spi_payload = []
 
 # create payload ramp
-for i in range(0, spi_payload_size):
+for i in range(0, SPIPAYSIZE):
     spi_payload.append(i)
 
 
@@ -81,24 +81,24 @@ if __name__ == '__main__':
     fault_counter = 0
 
     if syp.DBG:
-      print("---------- DEBUG MODE ----------")
+        print("---------- DEBUG MODE ----------")
 
     #---------- ALIVE PING ----------#
     print("Checking STM32 ALIVE on pin_"+str(syp.PIN_STMALIVE))
     while( (GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE ) and not syp.DBG):
     # Waiting for STM32 coming to live
-      GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
-      time.sleep(syp.PINT)
-      GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
-	
-	# STM32 Alive Signal Detected
+        GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
+        time.sleep(syp.PINT)
+        GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
+
+        # STM32 Alive Signal Detected
     GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
     time.sleep(syp.PINT)
     GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
 
     print("Found STM32 is Alive")
 
-    # prepare direcory and file 
+    # prepare direcory and file
 
 
     #---------- FILE OPEN ----------#
@@ -108,28 +108,28 @@ if __name__ == '__main__':
 
     # check if file exists
 # test if directory exists
-    if not os.path.exists(dirName):
-      os.makedirs(dirName)
-      print("Directory", dirName,  "created ")
+    if not os.path.exists(DIRNAME):
+        os.makedirs(DIRNAME)
+        print("Directory", DIRNAME,  "created ")
     #    else:
-    #        print("Directory", dirName,  "exists")
-            
-    # list all files
-    onlyfiles = [f for f in listdir(dirName) if isfile(join(dirName, f))]
+    #        print("Directory", DIRNAME,  "exists")
 
-    max = 0
+    # list all files
+    onlyfiles = [f for f in listdir(DIRNAME) if isfile(join(DIRNAME, f))]
+
+    fmax = 0
     for file in onlyfiles:
-      # assuming filename is "filexxx.txt"
-      num = int(re.search(fileprefix+'(\d*).csv', file).group(1))
-      # compare num to previous max, e.g.
-      max = num if num > max else max  # set max = 0 before for-loop
-    nextnum = max+1
-    
-    filename = fileprefix + str(nextnum) + '.csv'        
-    data_file = open('./'+dirName+'/'+filename, 'w+', newline='')
+        # assuming filename is "filexxx.txt"
+        num = int(re.search(FILEPRE+'(\d*).csv', file).group(1))
+        # compare num to previous max, e.g.
+        fmax = num if num > fmax else fmax  # set max = 0 before for-loop
+    nextnum = fmax+1
+
+    filename = FILEPRE + str(nextnum) + '.csv'
+    data_file = open('./'+DIRNAME+'/'+filename, 'w+', newline='')
 
     print("Filename:", filename)
-    
+
 
     print("Entering Packet TX RX Loop")
 
@@ -138,171 +138,172 @@ if __name__ == '__main__':
 
     #---------- ENDLESS LOOP ----------#
     try:
-      while True:
-        
-        print("1")
-        # check in every iteration the alive pins
-        # @jwa is this really neccessary ?
-        if GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE:
-          print("2")
-          # Waiting for STM32 becoming Alive Again
-          GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
-          time.sleep(0.1)
-          GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
-        else:
-          print("3")
+        while True:
 
-        # putting together the SPI transmission frame
-        spi_tx_frame.append(spi_start_byte1)
-        spi_tx_frame.append(spi_start_byte2)
-        spi_tx_frame.append(spi_payload_size)
-        spi_tx_frame.extend(spi_payload)
-        spi_tx_frame.append(spi_crc_dummy)
-        spi_tx_frame.append(spi_end_byte1)
-        spi_tx_frame.append(spi_end_byte2)
-
-        # SEND and RECEIVE Data Frame
-        spi_rx_frame = spi.xfer2(spi_tx_frame)
-        # read the SPI bytes
-        #spi_rx_frame = spi.readbytes(spi_frame_size)
-
-        # check the Packet Format's start and stopbytes
-        if((spi_rx_frame[syp.OFF_START] == spi_start_byte1) and (spi_rx_frame[syp.OFF_START+1] == spi_start_byte2)
-                  and (spi_rx_frame[spi_frame_size-2] == spi_end_byte1) and (spi_rx_frame[spi_frame_size-1] == spi_end_byte2)):
-
-          # check the SPI payload size and parse the SPI frame
-          if((spi_rx_frame[syp.OFF_PSIZE]) == spi_payload_size):
-
-            # parsing the single bytes from SPI into byte arrays
-            command_bytearray = bytearray(
-                [spi_rx_frame[spi_payloadoffset_cmd], spi_rx_frame[spi_payloadoffset_cmd+1]])
-
-            timestamp_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1],
-              spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data + syp.OFF_TIMESTAMP]])
-
-            motorcurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
-              spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
-
-            dutycycle_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+8], spi_rx_frame[spi_payloadoffset_data+9]])
-
-            amperehours_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+10], spi_rx_frame[spi_payloadoffset_data+11],
-              spi_rx_frame[spi_payloadoffset_data+12], spi_rx_frame[spi_payloadoffset_data+13]])
-
-            watthours_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+14], spi_rx_frame[spi_payloadoffset_data+15],
-              spi_rx_frame[spi_payloadoffset_data+16], spi_rx_frame[spi_payloadoffset_data+17]])
-
-            tempmosfet_bytearray = bytearray(
-                [spi_rx_frame[spi_payloadoffset_data+18], spi_rx_frame[spi_payloadoffset_data+19]])
-
-            tempmotor_bytearray = bytearray(
-                [spi_rx_frame[spi_payloadoffset_data+20], spi_rx_frame[spi_payloadoffset_data+21]])
-            
-            batterycurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+22], spi_rx_frame[spi_payloadoffset_data+23],
-              spi_rx_frame[spi_payloadoffset_data+24], spi_rx_frame[spi_payloadoffset_data+25]])         
-
-            pid_bytearray = bytearray(
-                [spi_rx_frame[spi_payloadoffset_data+26], spi_rx_frame[spi_payloadoffset_data+27]])
-
-            batteryvoltage_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+28], spi_rx_frame[spi_payloadoffset_data+29],
-              spi_rx_frame[spi_payloadoffset_data+30], spi_rx_frame[spi_payloadoffset_data+31]])   
-
-            
-            
-            loadcell_hx711_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+34], spi_rx_frame[spi_payloadoffset_data+35]])
-
-            # unpacking RX bytewise
-            command_value = struct.unpack(">H", command_bytearray)
-            timestamp_value = struct.unpack(">I", timestamp_bytearray)
-            motorcurrent_value = struct.unpack(">f", motorcurrent_bytearray)
-            dutycylce_value = struct.unpack(">H", dutycycle_bytearray)
-            amperehours_value = struct.unpack(">I", amperehours_bytearray)
-            watthours_value = struct.unpack(">I", watthours_bytearray)
-            tempmosfet_value = struct.unpack(">H", tempmosfet_bytearray)
-            tempmotor_value = struct.unpack(">H", tempmotor_bytearray)
-            batterycurrent_value = struct.unpack(">f", batterycurrent_bytearray)
-            pid_value = struct.unpack(">H", pid_bytearray)
-            batteryvoltage_value = struct.unpack(">f", batteryvoltage_bytearray)
-            joystick_i2c_x_value = struct.unpack(">b", bytearray([spi_rx_frame[spi_payloadoffset_data+32]]))
-            joystick_i2c_y_value = struct.unpack(">b", bytearray([spi_rx_frame[spi_payloadoffset_data+33]]))
-            loadcell_hx711_value = struct.unpack(">H", loadcell_hx711_bytearray)
-
-            # check rcv command type
-            # 1. case: data without logging
-            if(int(''.join(map(str, command_value))) == spi_cmd_sensordata_nolog):
-              #data_file.close()
-              print("no file writing")
-              print(type(spi_rx_frame[spi_payloadoffset_data+30]))
-              print(command_value, timestamp_value, motorcurrent_value, dutycylce_value, amperehours_value, 
-                watthours_value, tempmosfet_value, tempmotor_value, batterycurrent_value, pid_value,
-                batteryvoltage_value, joystick_i2c_x_value, joystick_i2c_y_value, loadcell_hx711_value)
-            
-            # 2. case: data + logging
-            elif(int(''.join(map(str, command_value))) == spi_cmd_sensordata_log):
-              
-              print(old_command)
-              
-              if (old_command != command_value and (old_command != spi_cmd_status) and command_value != spi_cmd_status):
-                print("here")
-                
-                # removed file creation and file opening from here
-
-                #print(data_file)
-                now = datetime.now()
-                time_base = now.strftime("%H%M%S\0")
-                date_base = now.strftime("%d%m%Y\0")
-                csvwriter = csv.writer(data_file, delimiter=',',
-                                       quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                #result.write(timestamp + ";data1;data2;data3\n")
-                csvwriter.writerow([time_base + date_base + '0'])
-  
-                csvwriter.writerow(command_value + timestamp_value + motorcurrent_value + 
-                  dutycylce_value + amperehours_value + watthours_value + tempmosfet_value +
-                  tempmotor_value + tempmotor_value + batterycurrent_value + pid_value +
-                  batteryvoltage_value + joystick_i2c_x_value + joystick_i2c_y_value +
-                  loadcell_hx711_value)
-              else:
-                if (data_file.closed):
-                  print("file closed")
-                else:
-                  csvwriter.writerow(command_value + timestamp_value + motorcurrent_value + 
-                    dutycylce_value + amperehours_value + watthours_value + tempmosfet_value +
-                    tempmotor_value + tempmotor_value + batterycurrent_value + pid_value +
-                    batteryvoltage_value + joystick_i2c_x_value + joystick_i2c_y_value +
-                    loadcell_hx711_value)
-            
-            # 3. case: status received from stm32
+            print("1")
+            # check in every iteration the alive pins
+            # @jwa is this really neccessary ?
+            if GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE:
+                print("2")
+                # Waiting for STM32 becoming Alive Again
+                GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
+                time.sleep(syp.PINT)
+                GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
             else:
-              print("Status")
+                print("3")
 
-            old_command = command_value
-          else:
-            # error handling payload size
-            dummy = 0
-            fault_counter += 1            
-            print ("F101: RX SPI Packet: Unexpected Rx Packet Size. Faultcount: "+str(fault_counter))
-        else:
-          # error handling incorrect start or stop
-          dummy = 0
-          fault_counter += 1        
-          print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+str(fault_counter))
+            print("4")
+            # putting together the SPI transmission frame
+            spi_tx_frame.append(SPISTARTB0)
+            spi_tx_frame.append(SPISTARTB1)
+            spi_tx_frame.append(SPIPAYSIZE)
+            spi_tx_frame.extend(spi_payload)
+            spi_tx_frame.append(spi_crc_dummy)
+            spi_tx_frame.append(spi_end_byte1)
+            spi_tx_frame.append(spi_end_byte2)
 
-          
-   
-          # avoid overflow of 4096 bytes SPI buffer
-        spi_tx_frame.clear()
-        spi_rx_frame.clear()
+            # SEND and RECEIVE Data Frame
+            spi_rx_frame = spi.xfer2(spi_tx_frame)
+            # read the SPI bytes
+            #spi_rx_frame = spi.readbytes(SPIFRMSIZE)
 
-            #result.write(str(command_value) + ";" + str(timestamp_value) + ";" + str(motorcurrent_value) + "\n")
-            #csvwriter.writerow(command_value + timestamp_value + motorcurrent_value)
+            # check the Packet Format's start and stopbytes
+            if((spi_rx_frame[syp.OFF_START] == SPISTARTB0) and (spi_rx_frame[syp.OFF_START+1] == SPISTARTB1)
+                      and (spi_rx_frame[SPIFRMSIZE-2] == spi_end_byte1) and (spi_rx_frame[SPIFRMSIZE-1] == spi_end_byte2)):
 
-        time.sleep(0.1)
+                # check the SPI payload size and parse the SPI frame
+                if (spi_rx_frame[syp.OFF_PSIZE]) == SPIPAYSIZE:
+
+                    # parsing the single bytes from SPI into byte arrays
+                    command_bytearray = bytearray(
+                        [spi_rx_frame[spi_payloadoffset_cmd], spi_rx_frame[spi_payloadoffset_cmd+1]])
+
+                    timestamp_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data], spi_rx_frame[spi_payloadoffset_data+1],
+                      spi_rx_frame[spi_payloadoffset_data+2], spi_rx_frame[spi_payloadoffset_data + syp.OFF_TIMESTAMP]])
+
+                    motorcurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+4], spi_rx_frame[spi_payloadoffset_data+5],
+                      spi_rx_frame[spi_payloadoffset_data+6], spi_rx_frame[spi_payloadoffset_data+7]])
+
+                    dutycycle_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+8], spi_rx_frame[spi_payloadoffset_data+9]])
+
+                    amperehours_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+10], spi_rx_frame[spi_payloadoffset_data+11],
+                      spi_rx_frame[spi_payloadoffset_data+12], spi_rx_frame[spi_payloadoffset_data+13]])
+
+                    watthours_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+14], spi_rx_frame[spi_payloadoffset_data+15],
+                      spi_rx_frame[spi_payloadoffset_data+16], spi_rx_frame[spi_payloadoffset_data+17]])
+
+                    tempmosfet_bytearray = bytearray(
+                        [spi_rx_frame[spi_payloadoffset_data+18], spi_rx_frame[spi_payloadoffset_data+19]])
+
+                    tempmotor_bytearray = bytearray(
+                        [spi_rx_frame[spi_payloadoffset_data+20], spi_rx_frame[spi_payloadoffset_data+21]])
+
+                    batterycurrent_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+22], spi_rx_frame[spi_payloadoffset_data+23],
+                      spi_rx_frame[spi_payloadoffset_data+24], spi_rx_frame[spi_payloadoffset_data+25]])
+
+                    pid_bytearray = bytearray(
+                        [spi_rx_frame[spi_payloadoffset_data+26], spi_rx_frame[spi_payloadoffset_data+27]])
+
+                    batteryvoltage_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+28], spi_rx_frame[spi_payloadoffset_data+29],
+                      spi_rx_frame[spi_payloadoffset_data+30], spi_rx_frame[spi_payloadoffset_data+31]])
+
+
+
+                    loadcell_hx711_bytearray = bytearray([spi_rx_frame[spi_payloadoffset_data+34], spi_rx_frame[spi_payloadoffset_data+35]])
+
+                    # unpacking RX bytewise
+                    command_value = struct.unpack(">H", command_bytearray)
+                    timestamp_value = struct.unpack(">I", timestamp_bytearray)
+                    motorcurrent_value = struct.unpack(">f", motorcurrent_bytearray)
+                    dutycylce_value = struct.unpack(">H", dutycycle_bytearray)
+                    amperehours_value = struct.unpack(">I", amperehours_bytearray)
+                    watthours_value = struct.unpack(">I", watthours_bytearray)
+                    tempmosfet_value = struct.unpack(">H", tempmosfet_bytearray)
+                    tempmotor_value = struct.unpack(">H", tempmotor_bytearray)
+                    batterycurrent_value = struct.unpack(">f", batterycurrent_bytearray)
+                    pid_value = struct.unpack(">H", pid_bytearray)
+                    batteryvoltage_value = struct.unpack(">f", batteryvoltage_bytearray)
+                    joystick_i2c_x_value = struct.unpack(">b", bytearray([spi_rx_frame[spi_payloadoffset_data+32]]))
+                    joystick_i2c_y_value = struct.unpack(">b", bytearray([spi_rx_frame[spi_payloadoffset_data+33]]))
+                    loadcell_hx711_value = struct.unpack(">H", loadcell_hx711_bytearray)
+
+                    # check rcv command type
+                    # 1. case: data without logging
+                    if int(''.join(map(str, command_value))) == spi_cmd_sensordata_nolog:
+                        #data_file.close()
+                        print("no file writing")
+                        print(type(spi_rx_frame[spi_payloadoffset_data+30]))
+                        print(command_value, timestamp_value, motorcurrent_value, dutycylce_value, amperehours_value,
+                          watthours_value, tempmosfet_value, tempmotor_value, batterycurrent_value, pid_value,
+                          batteryvoltage_value, joystick_i2c_x_value, joystick_i2c_y_value, loadcell_hx711_value)
+
+                    # 2. case: data + logging
+                    elif int(''.join(map(str, command_value))) == spi_cmd_sensordata_log:
+
+                        print(old_command)
+
+                        if (old_command != command_value and (old_command != spi_cmd_status) and command_value != spi_cmd_status):
+                            print("here")
+
+                            # removed file creation and file opening from here
+
+                            #print(data_file)
+                            now = datetime.now()
+                            time_base = now.strftime("%H%M%S\0")
+                            date_base = now.strftime("%d%m%Y\0")
+                            csvwriter = csv.writer(data_file, delimiter=',',
+                                                   quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                            #result.write(timestamp + ";data1;data2;data3\n")
+                            csvwriter.writerow([time_base + date_base + '0'])
+
+                            csvwriter.writerow(command_value + timestamp_value + motorcurrent_value +
+                              dutycylce_value + amperehours_value + watthours_value + tempmosfet_value +
+                              tempmotor_value + tempmotor_value + batterycurrent_value + pid_value +
+                              batteryvoltage_value + joystick_i2c_x_value + joystick_i2c_y_value +
+                              loadcell_hx711_value)
+                        else:
+                            if data_file.closed:
+                                print("file closed")
+                            else:
+                                csvwriter.writerow(command_value + timestamp_value + motorcurrent_value +
+                                  dutycylce_value + amperehours_value + watthours_value + tempmosfet_value +
+                                  tempmotor_value + tempmotor_value + batterycurrent_value + pid_value +
+                                  batteryvoltage_value + joystick_i2c_x_value + joystick_i2c_y_value +
+                                  loadcell_hx711_value)
+
+                    # 3. case: status received from stm32
+                    else:
+                        print("Status")
+
+                    old_command = command_value
+                else:
+                    # error handling payload size
+                    dummy = 0
+                    fault_counter += 1
+                    print ("F101: RX SPI Packet: Unexpected Rx Packet Size. Faultcount: "+fault_counter)
+            else:
+                # error handling incorrect start or stop
+                dummy = 0
+                fault_counter += 1
+                print ("F102: Rx SPI Packet: Missing Start Stop Delimiters. Faultcount: "+fault_counter)
+
+
+
+                # avoid overflow of 4096 bytes SPI buffer
+            spi_tx_frame.clear()
+            spi_rx_frame.clear()
+
+                    #result.write(str(command_value) + ";" + str(timestamp_value) + ";" + str(motorcurrent_value) + "\n")
+                    #csvwriter.writerow(command_value + timestamp_value + motorcurrent_value)
+
+            time.sleep(0.1)
     except KeyboardInterrupt:
-      GPIO.cleanup()
-      #data_file.close()
-      spi.close()
-      sys.exit(0)
+        GPIO.cleanup()
+        #data_file.close()
+        spi.close()
+        sys.exit(0)
     except:
-      GPIO.cleanup()
-      #data_file.close()
-      spi.close()
-      sys.exit(0)
+        GPIO.cleanup()
+        #data_file.close()
+        spi.close()
+        sys.exit(0)

@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
     #---------- ALIVE PING ----------#
     print("Checking STM32 ALIVE on pin_"+str(syp.PIN_STMALIVE))
-    while((GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE) and not syp.DBG):
+    while((GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE) and not syp.ALIVEALWAYS):
         # Waiting for STM32 coming to live
         GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)
         time.sleep(syp.PINT)
@@ -174,7 +174,7 @@ if __name__ == '__main__':
 
             # check in every iteration the alive pins
             # @jwa is this really neccessary ?
-            if GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE:
+            if ((GPIO.input(syp.PIN_STMALIVE) != syp.STM32_ALIVE) and not syp.ALIVEALWAYS):
                 # Waiting for STM32 becoming Alive Again
                 # @todo add timeout counter
                 GPIO.output(syp.PIN_RPIALIVE, GPIO.HIGH)

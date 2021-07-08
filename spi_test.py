@@ -157,7 +157,7 @@ if __name__ == '__main__':
     time_base = now.strftime("%H%M%S\0")
     date_base = now.strftime("%d%m%Y\0")
     csvwriter = csv.writer(data_file, delimiter=',',
-        quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                           quotechar='|', quoting=csv.QUOTE_MINIMAL)
     csvwriter.writerow([time_base + date_base + '0'])
 
     print("Filename:", filename)
@@ -181,7 +181,6 @@ if __name__ == '__main__':
                 time.sleep(syp.PINT)
                 GPIO.output(syp.PIN_RPIALIVE, GPIO.LOW)
 
-            
             # SEND and RECEIVE Data Frame
             if syp.DBG:
                 print("spi_xfer "+str(len(txo.tx_frame)))
@@ -189,7 +188,6 @@ if __name__ == '__main__':
 
             # Transmit Receive SPI Packet
             spi_rx_frame = spi.xfer2(txo.tx_frame)
-
 
             # check the Packet Format's start and stopbytes
             if((spi_rx_frame[syp.OFF_START] == SPISTARTB0) and (spi_rx_frame[syp.OFF_START+1] == SPISTARTB1)
@@ -259,21 +257,19 @@ if __name__ == '__main__':
                     loadcell_hx711_value = struct.unpack(
                         ">H", loadcell_hx711_bytearray)
 
-                    
-
                     # check rcv command type
                     # case: Sensordata packet -no_logging
                     if int(''.join(map(str, command_value))) == spi_cmd_sensordata_nolog:
                         # data_file.close()
-                            
-                        
+
                         # close data file if it has been open for logging
-                        if (data_file.closed == False):                            
+                        if (data_file.closed == False):
                             data_file.close()
 
                         if syp.DBG:
                             print("-no_log")
-                            print(type(spi_rx_frame[spi_payloadoffset_data+30]))
+                            print(
+                                type(spi_rx_frame[spi_payloadoffset_data+30]))
                             print(command_value, timestamp_value, motorcurrent_value, dutycylce_value, amperehours_value,
                                   watthours_value, tempmosfet_value, tempmotor_value, batterycurrent_value, pid_value,
                                   batteryvoltage_value, joystick_i2c_x_value, joystick_i2c_y_value, loadcell_hx711_value)
@@ -286,36 +282,20 @@ if __name__ == '__main__':
 
                         # Reopen File if closed
                         if (data_file.closed == True):
-
-                            print("here")
-                            # list all files
-                            onlyfiles = [f for f in listdir(DIRNAME) if isfile(join(DIRNAME, f))]
-
-                            fmax = 0
-                            for file in onlyfiles:
-                                # assuming filename is "filexxx.txt"
-                                num = int(re.search(FILEPRE+'(\d*).csv', file).group(1))
-                                # compare num to previous max, e.g.
-                                fmax = num if num > fmax else fmax  # set max = 0 before for-loop
-                            nextnum = fmax+1
-
-                            filename = FILEPRE + str(nextnum) + '.csv'
-                            data_file = open('./'+DIRNAME+'/' + filename, 'w+', newline='')
-                            now = datetime.now()
-                            time_base = now.strftime("%H%M%S\0")
-                            date_base = now.strftime("%d%m%Y\0")
+                            data_file = open(
+                                './'+DIRNAME+'/' + filename, 'w+', newline='')
                             csvwriter = csv.writer(data_file, delimiter=',',
-                                quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                                                   quotechar='|', quoting=csv.QUOTE_MINIMAL)
                             csvwriter.writerow([time_base + date_base + '0'])
-                            print("Filename:", filename)
-                        
+                            if syp.DBG:
+                                print("fn:", filename)
+
                         # append data to .csv
                         csvwriter.writerow(command_value + timestamp_value + motorcurrent_value +
-                                dutycylce_value + amperehours_value + watthours_value + tempmosfet_value +
-                                tempmotor_value + tempmotor_value + batterycurrent_value + pid_value +
-                                batteryvoltage_value + joystick_i2c_x_value + joystick_i2c_y_value +
-                                loadcell_hx711_value)
- 
+                                           dutycylce_value + amperehours_value + watthours_value + tempmosfet_value +
+                                           tempmotor_value + tempmotor_value + batterycurrent_value + pid_value +
+                                           batteryvoltage_value + joystick_i2c_x_value + joystick_i2c_y_value +
+                                           loadcell_hx711_value)
 
                     # 3. case: status received from stm32
                     else:

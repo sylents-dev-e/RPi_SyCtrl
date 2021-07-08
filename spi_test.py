@@ -282,6 +282,25 @@ if __name__ == '__main__':
 
                         # Reopen File if closed
                         if (data_file.closed == True):
+
+                            print("here")
+                            # list all files
+                            onlyfiles = [f for f in listdir(DIRNAME) if isfile(join(DIRNAME, f))]
+
+                            fmax = 0
+                            for file in onlyfiles:
+                                # assuming filename is "filexxx.txt"
+                                num = int(re.search(FILEPRE+'(\d*).csv', file).group(1))
+                                # compare num to previous max, e.g.
+                                fmax = num if num > fmax else fmax  # set max = 0 before for-loop
+                            nextnum = fmax+1
+
+                            filename = FILEPRE + str(nextnum) + '.csv'
+                            data_file = open('./'+DIRNAME+'/' + filename, 'w+', newline='')
+                            now = datetime.now()
+                            time_base = now.strftime("%H%M%S\0")
+                            date_base = now.strftime("%d%m%Y\0")
+                                                    
                             data_file = open(
                                 './'+DIRNAME+'/' + filename, 'w+', newline='')
                             csvwriter = csv.writer(data_file, delimiter=',',

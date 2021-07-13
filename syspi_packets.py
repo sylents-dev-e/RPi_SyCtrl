@@ -13,7 +13,7 @@ import re
 
 import RPi.GPIO as GPIO
 import spidev
-import sypacket as syp
+import syplib as syp
 
 # def extract_number(f):p
 #    s = re.findall("(\d+).csv", f)
